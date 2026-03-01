@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/common_widgets.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -7,9 +10,13 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with TickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  
+  late AnimationController _logoAnimationController;
+  late AnimationController _textAnimationController;
 
   final List<OnboardingPage> _pages = [
     OnboardingPage(
@@ -17,24 +24,50 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Welcome to MediCare',
       quote: 'Your Health, Our Priority.',
       description: 'Experience world-class healthcare with our trusted network of medical professionals.',
+      icon: Icons.local_hospital,
     ),
     OnboardingPage(
       backgroundImageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=1200&fit=crop',
       title: 'Seamless Appointments',
       quote: 'Book Appointments Anytime, Anywhere.',
       description: 'Schedule your doctor visits instantly with our intuitive booking system.',
+      icon: Icons.calendar_month,
     ),
     OnboardingPage(
       backgroundImageUrl: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&h=1200&fit=crop',
       title: 'Quality Healthcare',
       quote: 'Quality Care at Your Fingertips.',
       description: 'Access top-rated clinics and doctors in your area with real-time availability.',
+      icon: Icons.health_and_safety,
     ),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    _logoAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    
+    _textAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _logoAnimationController.forward();
+    _textAnimationController.forward();
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
+    _logoAnimationController.dispose();
+    _textAnimationController.dispose();
     super.dispose();
   }
 
@@ -64,6 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
       body: Stack(
         children: [
           // PageView with background images
@@ -77,7 +111,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               });
             },
             itemBuilder: (context, index) {
-              return OnboardingPageWidget(page: _pages[index]);
+              return OnboardingPageWidget(
+                page: _pages[index],
+                logoAnimation: _logoAnimationController,
+                textAnimation: _textAnimationController,
+              );
             },
           ),
 
@@ -86,15 +124,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Align(
               alignment: Alignment.topRight,
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(AppTheme.spacing20),
                 child: TextButton(
                   onPressed: _skipToEnd,
-                  child: const Text(
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.spacing16,
+                      vertical: AppTheme.spacing8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                  ),
+                  child: Text(
                     'Skip',
-                    style: TextStyle(
+                    style: AppTheme.body2.copyWith(
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -107,7 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: const EdgeInsets.all(32.0),
+                padding: const EdgeInsets.all(AppTheme.spacing32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -118,44 +165,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         _pages.length,
                         (index) => AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                          height: 8,
-                          width: _currentPage == index ? 28 : 8,
+                          margin: const EdgeInsets.symmetric(horizontal: AppTheme.spacing4),
+                          height: AppTheme.spacing8,
+                          width: _currentPage == index ? AppTheme.spacing32 : AppTheme.spacing8,
                           decoration: BoxDecoration(
                             color: _currentPage == index
                                 ? Colors.white
                                 : Colors.white.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                           ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: AppTheme.spacing32),
 
                     // Next/Get Started Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _nextPage,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.blue.shade800,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          elevation: 8,
-                          shadowColor: Colors.black26,
-                        ),
-                        child: Text(
-                          _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                    PrimaryButton(
+                      text: _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
+                      onPressed: _nextPage,
+                      backgroundColor: Colors.white,
+                      textColor: AppTheme.medicalBlue,
+                      icon: _currentPage == _pages.length - 1
+                          ? const Icon(Icons.arrow_forward, size: 20)
+                          : null,
                     ),
                   ],
                 ),
@@ -170,10 +203,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
 class OnboardingPageWidget extends StatelessWidget {
   final OnboardingPage page;
+  final AnimationController logoAnimation;
+  final AnimationController textAnimation;
 
   const OnboardingPageWidget({
     super.key,
     required this.page,
+    required this.logoAnimation,
+    required this.textAnimation,
   });
 
   @override
@@ -189,12 +226,14 @@ class OnboardingPageWidget extends StatelessWidget {
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Container(
-              color: Colors.blue.shade900,
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+              ),
               child: const Center(
                 child: Icon(
                   Icons.local_hospital,
                   size: 100,
-                  color: Colors.white,
+                  color: AppTheme.textOnPrimary,
                 ),
               ),
             );
@@ -208,8 +247,8 @@ class OnboardingPageWidget extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.3),
-                Colors.black.withOpacity(0.7),
+                Colors.black.withOpacity(0.2),
+                Colors.black.withOpacity(0.8),
               ],
             ),
           ),
@@ -218,58 +257,116 @@ class OnboardingPageWidget extends StatelessWidget {
         // Content
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 60.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacing32,
+              vertical: AppTheme.spacing48,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Title
-                Text(
-                  page.title,
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
+                // Logo/Icon with animation
+                AnimatedBuilder(
+                  animation: logoAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: logoAnimation.value,
+                      child: FadeTransition(
+                        opacity: logoAnimation,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusXXLarge),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            page.icon,
+                            size: 60,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spacing40),
 
-                // Quote
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    page.quote,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                // Title with animation
+                AnimatedBuilder(
+                  animation: textAnimation,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: textAnimation,
+                      child: Text(
+                        page.title,
+                        style: AppTheme.headline2.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: AppTheme.spacing24),
 
-                // Description
-                Text(
-                  page.description,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    height: 1.6,
-                  ),
-                  textAlign: TextAlign.center,
+                // Quote with animation
+                AnimatedBuilder(
+                  animation: textAnimation,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: textAnimation,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacing24,
+                          vertical: AppTheme.spacing16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          page.quote,
+                          style: AppTheme.headline5.copyWith(
+                            color: Colors.white,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: AppTheme.spacing24),
+
+                // Description with animation
+                AnimatedBuilder(
+                  animation: textAnimation,
+                  builder: (context, child) {
+                    return FadeTransition(
+                      opacity: textAnimation,
+                      child: Text(
+                        page.description,
+                        style: AppTheme.body1.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                          height: 1.6,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -285,11 +382,13 @@ class OnboardingPage {
   final String title;
   final String quote;
   final String description;
+  final IconData icon;
 
   OnboardingPage({
     required this.backgroundImageUrl,
     required this.title,
     required this.quote,
     required this.description,
+    required this.icon,
   });
 }

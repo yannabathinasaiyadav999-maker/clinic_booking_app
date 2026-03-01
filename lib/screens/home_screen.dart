@@ -1,206 +1,512 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/theme/app_theme.dart';
+import '../core/widgets/common_widgets.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_model.dart';
 
-/// Home screen displaying user information and main app functionality
-/// Shows personalized welcome message and user data after successful login
-class HomeScreen extends ConsumerWidget {
+/// Modern Home screen with bottom navigation
+/// Shows personalized welcome message and main app functionality
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Watch current user
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  int _currentIndex = 0;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Logout',
+            style: AppTheme.headline5,
+          ),
+          content: Text(
+            'Are you sure you want to logout?',
+            style: AppTheme.body1,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: AppTheme.body2.copyWith(color: AppTheme.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                ref.read(authNotifierProvider.notifier).logout();
+                Navigator.of(context).pushReplacementNamed('/login');
+              },
+              child: Text(
+                'Logout',
+                style: AppTheme.body2.copyWith(color: AppTheme.error),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Clinic Booking'),
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        actions: [
-          // Logout button
-          IconButton(
-            onPressed: () {
-              // Show confirmation dialog before logging out
-              _showLogoutDialog(context, ref);
-            },
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
-        ],
+      backgroundColor: AppTheme.backgroundLight,
+      body: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return FadeTransition(
+            opacity: _fadeAnimation,
+            child: _currentIndex == 0
+                ? _buildHomeContent(context, ref, currentUser)
+                : _currentIndex == 1
+                    ? _buildAppointmentsContent()
+                    : _currentIndex == 2
+                        ? _buildProfileContent(context, ref, currentUser)
+                        : _buildSettingsContent(),
+          );
+        },
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User Welcome Section
-            if (currentUser != null)
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade600, Colors.blue.shade800],
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  /// Builds the main home content
+  Widget _buildHomeContent(BuildContext context, WidgetRef ref, UserModel? currentUser) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.spacing24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // User Welcome Section
+          if (currentUser != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppTheme.spacing24),
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.medicalBlue.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        // User Avatar
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      // User Avatar
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                        child: Center(
                           child: Text(
                             _getInitials(currentUser.fullName),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
+                            style: AppTheme.headline4.copyWith(
+                              color: AppTheme.textOnPrimary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        // User Info
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome, ${currentUser.fullName}!',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                      ),
+                      const SizedBox(width: AppTheme.spacing16),
+                      // User Info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, ${currentUser.fullName}!',
+                              style: AppTheme.headline4.copyWith(
+                                color: AppTheme.textOnPrimary,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                currentUser.email,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 14,
-                                ),
+                            ),
+                            const SizedBox(height: AppTheme.spacing4),
+                            Text(
+                              currentUser.email,
+                              style: AppTheme.body2.copyWith(
+                                color: AppTheme.textOnPrimary.withOpacity(0.9),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'User ID: ${currentUser.id}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
                       ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              // Fallback welcome for non-authenticated users
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade600, Colors.grey.shade800],
+                      // Logout Button
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        ),
+                        child: IconButton(
+                          onPressed: () => _showLogoutDialog(context, ref),
+                          icon: const Icon(Icons.logout, color: AppTheme.textOnPrimary),
+                          tooltip: 'Logout',
+                        ),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  const SizedBox(height: AppTheme.spacing16),
+                  Text(
+                    'User ID: ${currentUser.id}',
+                    style: AppTheme.caption.copyWith(
+                      color: AppTheme.textOnPrimary.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            // Fallback welcome for non-authenticated users
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppTheme.spacing24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.medicalBlue, AppTheme.medicalBlueDark],
                 ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.medicalBlue.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.person,
+                    size: 40,
+                    color: AppTheme.textOnPrimary,
+                  ),
+                  const SizedBox(height: AppTheme.spacing16),
+                  Text(
+                    'Welcome!',
+                    style: AppTheme.headline4.copyWith(
+                      color: AppTheme.textOnPrimary,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Please log in to access your account',
-                      style: TextStyle(
-                        
-                        fontSize: 16,
-                      ),
+                  ),
+                  const SizedBox(height: AppTheme.spacing8),
+                  Text(
+                    'Please log in to access your account',
+                    style: AppTheme.body2.copyWith(
+                      color: AppTheme.textOnPrimary.withOpacity(0.9),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: AppTheme.spacing32),
+
+          // Quick Actions Section
+          Text(
+            'Quick Actions',
+            style: AppTheme.headline4.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacing20),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionCard(
+                  icon: Icons.calendar_today,
+                  title: 'Book Appointment',
+                  subtitle: 'Schedule with doctors',
+                  color: AppTheme.medicalBlue,
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/consultant-selection');
+                  },
                 ),
               ),
+              const SizedBox(width: AppTheme.spacing16),
+              Expanded(
+                child: _buildActionCard(
+                  icon: Icons.history,
+                  title: 'My Appointments',
+                  subtitle: 'View booking history',
+                  color: AppTheme.softTeal,
+                  onTap: () {
+                    // TODO: Navigate to appointments
+                  },
+                ),
+              ),
+            ],
+          ),
 
-            const SizedBox(height: 24),
+          const SizedBox(height: AppTheme.spacing16),
 
-            // Quick Actions Section
-            _buildQuickActions(context, ref),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionCard(
+                  icon: Icons.medical_services,
+                  title: 'Find Doctors',
+                  subtitle: 'Browse specialists',
+                  color: AppTheme.warning,
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/consultant-selection');
+                  },
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacing16),
+              Expanded(
+                child: _buildActionCard(
+                  icon: Icons.medication,
+                  title: 'Medicines',
+                  subtitle: 'Order medicines',
+                  color: AppTheme.success,
+                  onTap: () {
+                    // TODO: Navigate to medicines
+                  },
+                ),
+              ),
+            ],
+          ),
 
-            const SizedBox(height: 24),
+          const SizedBox(height: AppTheme.spacing32),
 
-            // App Features Section
-            _buildFeaturesSection(),
+          // Features Section
+          Text(
+            'Health Services',
+            style: AppTheme.headline4.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacing20),
 
-            const SizedBox(height: 24),
-
-            // Account Information Section
-            if (currentUser != null) _buildAccountInfo(context, currentUser),
-          ],
-        ),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            mainAxisSpacing: AppTheme.spacing16,
+            crossAxisSpacing: AppTheme.spacing16,
+            childAspectRatio: 1.0,
+            children: [
+              _buildFeatureCard(
+                icon: Icons.video_call,
+                title: 'Video Consultation',
+                subtitle: 'Connect with doctors online',
+                color: AppTheme.medicalBlue,
+              ),
+              _buildFeatureCard(
+                icon: Icons.local_pharmacy,
+                title: 'Find Pharmacy',
+                subtitle: 'Locate nearby pharmacies',
+                color: AppTheme.softTeal,
+              ),
+              _buildFeatureCard(
+                icon: Icons.science,
+                title: 'Lab Tests',
+                subtitle: 'Book diagnostic tests',
+                color: AppTheme.warning,
+              ),
+              _buildFeatureCard(
+                icon: Icons.health_and_safety,
+                title: 'Health Records',
+                subtitle: 'Access your medical history',
+                color: AppTheme.success,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  /// Builds quick action buttons for common tasks
-  Widget _buildQuickActions(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+  /// Builds appointments content
+  Widget _buildAppointmentsContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.calendar_month,
+            size: 80,
+            color: AppTheme.textSecondary,
           ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionCard(
-                icon: Icons.calendar_today,
-                title: 'Book Appointment',
-                subtitle: 'Schedule with doctors',
-                color: Colors.green,
-                onTap: () {
-                  Navigator.of(context).pushNamed('/consultant-selection');
-                },
-              ),
+          const SizedBox(height: AppTheme.spacing16),
+          Text(
+            'Appointments',
+            style: AppTheme.headline3.copyWith(
+              color: AppTheme.textSecondary,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionCard(
-                icon: Icons.history,
-                title: 'My Appointments',
-                subtitle: 'View history',
-                color: Colors.orange,
-                onTap: () {
-                  // TODO: Navigate to appointments history
-                },
-              ),
+          ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            'Your upcoming appointments will appear here',
+            style: AppTheme.body2.copyWith(
+              color: AppTheme.textSecondary,
             ),
-          ],
-        ),
-      ],
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
-  /// Builds a single action card
+  /// Builds profile content
+  Widget _buildProfileContent(BuildContext context, WidgetRef ref, UserModel? currentUser) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.spacing24),
+      child: Column(
+        children: [
+          Text(
+            'Profile',
+            style: AppTheme.headline3.copyWith(
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: AppTheme.spacing32),
+          
+          if (currentUser != null) ...[
+            // Profile Card
+            Container(
+              padding: const EdgeInsets.all(AppTheme.spacing24),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceWhite,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXXLarge),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _getInitials(currentUser.fullName),
+                        style: AppTheme.headline2.copyWith(
+                          color: AppTheme.textOnPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: AppTheme.spacing24),
+                  
+                  // User Info
+                  _buildProfileItem('Full Name', currentUser.fullName),
+                  _buildProfileItem('Email', currentUser.email),
+                  _buildProfileItem('User ID', currentUser.id.toString()),
+                ],
+              ),
+            ),
+          ] else ...[
+            const EmptyState(
+              title: 'Profile Not Available',
+              subtitle: 'Please log in to view your profile information',
+              icon: Icons.person_outline,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Builds settings content
+  Widget _buildSettingsContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.settings,
+            size: 80,
+            color: AppTheme.textSecondary,
+          ),
+          const SizedBox(height: AppTheme.spacing16),
+          Text(
+            'Settings',
+            style: AppTheme.headline3.copyWith(
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacing8),
+          Text(
+            'App settings and preferences will appear here',
+            style: AppTheme.body2.copyWith(
+              color: AppTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds action card for home screen
   Widget _buildActionCard({
     required IconData icon,
     required String title,
@@ -209,37 +515,44 @@ class HomeScreen extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: AppTheme.elevationSmall,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        child: Container(
+          padding: const EdgeInsets.all(AppTheme.spacing20),
           child: Column(
             children: [
-              Icon(
-                icon,
-                size: 32,
-                color: color,
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 30,
+                ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: AppTheme.spacing16),
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: AppTheme.subtitle1.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: AppTheme.spacing4),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
+                style: AppTheme.body2.copyWith(
+                  color: AppTheme.textSecondary,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -248,88 +561,52 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Builds the features section
-  Widget _buildFeaturesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Our Services',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: Icon(Icons.medical_services, color: Colors.blue),
-                  title: const Text('General Consultation'),
-                  subtitle: const Text('Book general health checkups'),
-                ),
-                ListTile(
-                  leading: Icon(Icons.person, color: Colors.green),
-                  title: const Text('Specialist Consultation'),
-                  subtitle: const Text('Consult with medical specialists'),
-                ),
-                ListTile(
-                  leading: Icon(Icons.video_call, color: Colors.purple),
-                  title: const Text('Online Consultation'),
-                  subtitle: const Text('Video calls with doctors'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Builds account information section
-  Widget _buildAccountInfo(BuildContext context, UserModel user) {
+  /// Builds feature card
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      elevation: AppTheme.elevationSmall,
+      child: Container(
+        padding: const EdgeInsets.all(AppTheme.spacing16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              'Account Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 20,
               ),
             ),
-            const SizedBox(height: 16),
-            _buildInfoRow('Full Name', user.fullName),
-            _buildInfoRow('Email', user.email),
-            _buildInfoRow('User ID', user.id.toString()),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Navigate to profile edit screen
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profile editing coming soon!')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.edit),
-                label: const Text('Edit Profile'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade600,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
+            SizedBox(height: AppTheme.spacing8),
+            Text(
+              title,
+              style: AppTheme.subtitle2.copyWith(
+                fontWeight: FontWeight.w600,
               ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: AppTheme.spacing4),
+            Text(
+              subtitle,
+              style: AppTheme.caption.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -337,28 +614,25 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Builds a single information row
-  Widget _buildInfoRow(String label, String value) {
+  /// Builds profile item
+  Widget _buildProfileItem(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
-              ),
+          Text(
+            '$label: ',
+            style: AppTheme.body2.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.black87,
+              style: AppTheme.body1.copyWith(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -367,43 +641,94 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  /// Gets user initials for avatar
-  String _getInitials(String fullName) {
-    final parts = fullName.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    } else if (parts.isNotEmpty) {
-      return parts[0][0].toUpperCase();
-    }
-    return 'U';
+  /// Builds bottom navigation bar
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.spacing24,
+            vertical: AppTheme.spacing8,
+          ),
+          child: Row(
+            children: [
+              _buildNavItem(
+                icon: Icons.home,
+                label: 'Home',
+                index: 0,
+              ),
+              SizedBox(width: AppTheme.spacing32),
+              _buildNavItem(
+                icon: Icons.calendar_month,
+                label: 'Appointments',
+                index: 1,
+              ),
+              SizedBox(width: AppTheme.spacing32),
+              _buildNavItem(
+                icon: Icons.person,
+                label: 'Profile',
+                index: 2,
+              ),
+              SizedBox(width: AppTheme.spacing32),
+              _buildNavItem(
+                icon: Icons.settings,
+                label: 'Settings',
+                index: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  /// Shows logout confirmation dialog
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+  /// Builds navigation item
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _currentIndex == index;
+    return GestureDetector(
+      onTap: () => _onTabTapped(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 24,
+            color: isSelected ? AppTheme.medicalBlue : AppTheme.textSecondary,
+          ),
+          SizedBox(height: AppTheme.spacing4),
+          Text(
+            label,
+            style: AppTheme.caption.copyWith(
+              color: isSelected ? AppTheme.medicalBlue : AppTheme.textSecondary,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Call logout from auth provider
-                ref.read(authNotifierProvider.notifier).logout();
-                // Navigate back to login screen
-                Navigator.of(context).pushReplacementNamed('/login');
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
+  }
+
+  /// Gets initials from full name
+  String _getInitials(String fullName) {
+    final parts = fullName.trim().split(' ');
+    if (parts.isEmpty) return fullName[0].toUpperCase();
+    if (parts.length >= 2) {
+      return '${parts[0][0].toUpperCase()}${parts[1][0].toUpperCase()}';
+    }
+    return parts[0][0].toUpperCase();
   }
 }
